@@ -1,0 +1,27 @@
+-- Create "accounts" table
+CREATE TABLE "bank"."accounts" (
+  "account_id" uuid NOT NULL DEFAULT gen_random_uuid(),
+  "customer_id" uuid NOT NULL,
+  "iban" text NOT NULL,
+  "currency" character(3) NOT NULL,
+  "account_type" text NOT NULL,
+  "status" text NOT NULL DEFAULT 'ACTIVE',
+  "opened_at" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "closed_at" timestamptz NULL,
+  "booked_balance_minor" bigint NOT NULL DEFAULT 0,
+  "available_balance_minor" bigint NOT NULL DEFAULT 0,
+  "overdraft_limit_minor" bigint NOT NULL DEFAULT 0,
+  "daily_transfer_limit_minor" bigint NOT NULL DEFAULT 500000,
+  "instant_payment_limit_minor" bigint NOT NULL DEFAULT 1000000,
+  CONSTRAINT "accounts_account_id_pkey" PRIMARY KEY ("account_id"),
+  CONSTRAINT "accounts_iban_key" UNIQUE ("iban"),
+  CONSTRAINT "accounts_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "bank"."customers" ("customer_id") ON UPDATE NO ACTION ON DELETE RESTRICT,
+  CONSTRAINT "accounts_account_type_check" CHECK (account_type = ANY (ARRAY['CURRENT'::text, 'SAVINGS'::text, 'BUSINESS'::text])),
+  CONSTRAINT "accounts_closed_at_check" CHECK ((closed_at IS NULL) OR (closed_at >= opened_at)),
+  CONSTRAINT "accounts_currency_check" CHECK (currency ~ '^[A-Z]{3}$'::text),
+  CONSTRAINT "accounts_daily_transfer_limit_minor_check" CHECK (daily_transfer_limit_minor >= 0),
+  CONSTRAINT "accounts_iban_check" CHECK (iban ~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$'::text),
+  CONSTRAINT "accounts_instant_payment_limit_minor_check" CHECK (instant_payment_limit_minor >= 0),
+  CONSTRAINT "accounts_overdraft_limit_minor_check" CHECK (overdraft_limit_minor >= 0),
+  CONSTRAINT "accounts_status_check" CHECK (status = ANY (ARRAY['ACTIVE'::text, 'DORMANT'::text, 'FROZEN'::text, 'CLOSED'::text]))
+);
