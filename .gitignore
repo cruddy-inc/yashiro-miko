@@ -1,0 +1,195 @@
+# =============================================================================
+# yashiro-miko .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Secrets and credentials
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+*.local.yaml
+*.local.yml
+*.local.json
+
+*.dec.yaml
+*.dec.json
+*.dec.env
+*.agekey
+age.key
+age-key.txt
+keys.txt
+
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.csr
+deploy/**/certs/
+
+service-account*.json
+application_default_credentials.json
+credentials.json
+
+
+# -----------------------------------------------------------------------------
+# Go
+# -----------------------------------------------------------------------------
+/bin/
+/services/*/bin/
+/tools/*/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*.prof
+*.pprof
+coverage.out
+coverage.txt
+*.coverprofile
+vendor/
+go.work.sum
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.ipynb_checkpoints/
+*.egg-info/
+.eggs/
+/services/*/build/
+/services/*/dist/
+/tools/*/build/
+/tools/*/dist/
+
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+lcov.info
+*.cover
+
+
+# -----------------------------------------------------------------------------
+# Evals, tracking and AI tooling
+# -----------------------------------------------------------------------------
+
+mlruns/
+mlartifacts/
+mlflow.db
+*.sqlite
+*.sqlite3
+
+.promptfoo/
+.deepeval/
+.deepeval_telemetry.txt
+node_modules/
+npm-debug.log*
+
+/tools/matsuri/out/
+/tools/oni/out/
+/tools/evals/runs/
+
+*.gguf
+*.safetensors
+*.onnx
+.cache/
+
+
+# -----------------------------------------------------------------------------
+# Terraform
+# -----------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+
+# -----------------------------------------------------------------------------
+# Kubernetes, Helm, Kind
+# -----------------------------------------------------------------------------
+deploy/helm/**/charts/*.tgz
+kubeconfig
+*.kubeconfig
+kind-kubeconfig*
+/rendered/
+*.rendered.yaml
+
+
+# -----------------------------------------------------------------------------
+# Docker Compose and local service data
+# -----------------------------------------------------------------------------
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+**/.volumes/
+/exports/
+
+
+# -----------------------------------------------------------------------------
+# CI, security and supply-chain output
+# -----------------------------------------------------------------------------
+*.sarif
+*.spdx.json
+*.cdx.json
+gitleaks-report.*
+trivy-report.*
+/dist/
+/perf-results/
+*.bench
+
+
+# -----------------------------------------------------------------------------
+# Demo and media
+# -----------------------------------------------------------------------------
+*.mp4
+*.mov
+*.mkv
+*.webm
+
+
+# -----------------------------------------------------------------------------
+# Editors, OS, tooling
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.direnv/
+.task/
+.claude/settings.local.json
+
+# Logs and scratch
+*.log
+*.tmp
+*.bak
+/tmp/
+.tmp/
