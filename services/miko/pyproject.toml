@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "miko"
 version = "0.1.0"
@@ -17,6 +21,9 @@ dependencies = [
     "pydantic-settings>=2.16.3",
     "uvicorn>=0.54.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/miko"]
 
 [dependency-groups]
 dev = [
