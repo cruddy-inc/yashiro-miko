@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
+	"pkg/failure"
 	"pkg/logger"
 
 	"github.com/jackc/pgx/v5"
@@ -12,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Database(ctx context.Context, subject string, err error) {
+func Database(ctx context.Context, w http.ResponseWriter, subject string, err error) {
 	logger := logger.GetLogger(ctx)
 	span := trace.SpanFromContext(ctx)
 	pgErr, isPgErr := errors.AsType[*pgconn.PgError](err)
@@ -27,6 +29,7 @@ func Database(ctx context.Context, subject string, err error) {
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case errors.Is(err, pgconn.ErrConnClosed):
 		failed = true
 		code = "database_connection_closed"
@@ -34,18 +37,21 @@ func Database(ctx context.Context, subject string, err error) {
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case errors.Is(err, context.Canceled):
 		code = "database_operation_canceled"
 		logger.WarnContext(ctx, "database operation canceled",
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case errors.Is(err, pgx.ErrNoRows):
 		code = subject + "_not_found"
 		logger.WarnContext(ctx, "no rows found",
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case isPgErr:
 		switch pgErr.SQLState() {
 		case "23505":
@@ -58,6 +64,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "23503":
 			code = subject + "_foreign_key_violation"
 			logger.WarnContext(ctx, "resource relationship conflict",
@@ -68,6 +75,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		// Not Null violation
 		case "23502":
 			code = subject + "_missing"
@@ -79,6 +87,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "22P02":
 			code = subject + "_invalid"
 			logger.WarnContext(ctx, "invalid value",
@@ -86,6 +95,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "40P01":
 			failed = true
 			code = subject + "_deadlock"
@@ -94,6 +104,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "40001":
 			failed = true
 			code = subject + "_serialization_failure"
@@ -102,6 +113,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "25P02":
 			failed = true
 			code = subject + "_transaction_failed"
@@ -110,6 +122,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "53300":
 			failed = true
 			code = "database_connections_exhausted"
@@ -118,6 +131,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		case "57014":
 			code = subject + "_query_canceled"
 			logger.WarnContext(ctx, "database query canceled",
@@ -125,6 +139,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		default:
 			failed = true
 			code = subject + "_failed"
@@ -136,6 +151,7 @@ func Database(ctx context.Context, subject string, err error) {
 				slog.String("code", code),
 				slog.Any("err", err),
 			)
+			failure.Response(w, "")
 		}
 	default:
 		failed = true
@@ -144,6 +160,7 @@ func Database(ctx context.Context, subject string, err error) {
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, "")
 	}
 
 	if failed {
