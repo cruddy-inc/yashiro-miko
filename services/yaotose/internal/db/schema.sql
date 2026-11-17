@@ -16,6 +16,8 @@ CREATE TABLE yaotose.blacklist (
     CONSTRAINT blacklist_pkey PRIMARY KEY (tenant_id, iban_hash)
 );
 
+CREATE INDEX idx_blacklist_expires_at ON yaotose.blacklist(expires_at DESC);
+
 CREATE TABLE yaotose.payer_payee (
     tenant_id TEXT NOT NULL,
     CONSTRAINT payer_payee_tenant_id_check CHECK (length(trim(tenant_id)) BETWEEN 1 AND 64),

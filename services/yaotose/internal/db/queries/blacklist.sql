@@ -14,3 +14,8 @@ INSERT INTO yaotose.blacklist (
     sqlc.arg('ai_message')::text,
     now() + interval '24 hours'
 ) ON CONFLICT DO NOTHING;
+
+-- name: CheckBlacklist :one
+SELECT EXISTS (
+    SELECT 1 FROM yaotose.blacklist WHERE iban_hash = sqlc.arg('iban_hash') AND expires_at > NOW()
+);

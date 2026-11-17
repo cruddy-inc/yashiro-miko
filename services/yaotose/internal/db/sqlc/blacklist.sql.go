@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const checkBlacklist = `-- name: CheckBlacklist :one
+SELECT EXISTS (
+    SELECT 1 FROM yaotose.blacklist WHERE iban_hash = $1 AND expires_at > NOW()
+)
+`
+
+func (q *Queries) CheckBlacklist(ctx context.Context, ibanHash string) (bool, error) {
+	row := q.db.QueryRow(ctx, checkBlacklist, ibanHash)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertBlacklist = `-- name: InsertBlacklist :exec
 INSERT INTO yaotose.blacklist (
     tenant_id,
