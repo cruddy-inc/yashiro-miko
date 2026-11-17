@@ -2,6 +2,7 @@ package errlog
 
 import (
 	"context"
+	"net/http"
 	"pkg/failure"
 	"pkg/logger"
 	"strings"
@@ -10,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Internal(ctx context.Context, subject string, kind failure.KindType, err error) {
+func Internal(ctx context.Context, w http.ResponseWriter, subject string, kind failure.KindType, err error) {
 	logger := logger.GetLogger(ctx)
 	subjectMsg := strings.ReplaceAll(subject, "_", " ")
 	span := trace.SpanFromContext(ctx)
@@ -26,6 +27,7 @@ func Internal(ctx context.Context, subject string, kind failure.KindType, err er
 			"err", err,
 			"code", code,
 		)
+		failure.Response(w, failure.InternalEmptyValueError)
 	case failure.InternalGeneralError:
 		code = subject + "_failed"
 		failed = true
@@ -34,6 +36,7 @@ func Internal(ctx context.Context, subject string, kind failure.KindType, err er
 			"err", err,
 			"code", subject+"_failed",
 		)
+		failure.Response(w, failure.InternalGeneralError)
 	case failure.GenerationError:
 		code = subject + "_generation_failed"
 		failed = true
@@ -41,6 +44,7 @@ func Internal(ctx context.Context, subject string, kind failure.KindType, err er
 			"err", err,
 			"code", subject+"_generation_failed",
 		)
+		failure.Response(w, failure.GenerationError)
 	}
 
 	if failed {
