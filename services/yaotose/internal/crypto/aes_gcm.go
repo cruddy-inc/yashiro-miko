@@ -25,7 +25,7 @@ func EncryptVaultIban(secretKey []byte, paddedAndNormIBAN string) ([]byte, error
 		return nil, err
 	}
 
-	return aesgcm.Seal(nil, nonce, []byte(paddedAndNormIBAN), nil), nil
+	return aesgcm.Seal(nonce, nonce, []byte(paddedAndNormIBAN), nil), nil
 }
 
 func Decrypt(secretkey string, ciphertext []byte) (string, error) {
@@ -44,6 +44,7 @@ func Decrypt(secretkey string, ciphertext []byte) (string, error) {
 		return "", fmt.Errorf("Given ciphertext is too short: %d", len(ciphertext))
 	}
 
+	// Since the nonce is the first part - we simply can strip it to gain it back / same for the 'sealed'
 	nonce, sealed := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	plain, err := gcm.Open(nil, nonce, sealed, nil)
 	if err != nil {
