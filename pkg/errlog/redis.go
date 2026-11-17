@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"pkg/failure"
 	"pkg/logger"
 
 	"github.com/redis/go-redis/v9"
@@ -11,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Redis(ctx context.Context, subject string, err error) {
+func Redis(ctx context.Context, w http.ResponseWriter, subject string, err error) {
 
 	logger := logger.GetLogger(ctx)
 	span := trace.SpanFromContext(ctx)
@@ -28,12 +29,14 @@ func Redis(ctx context.Context, subject string, err error) {
 			"status", http.StatusGatewayTimeout,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case errors.Is(err, context.Canceled):
 		logger.Warn("redis operation canceled",
 			"err", err,
 			"status", http.StatusInternalServerError,
 			"code", "redis_operation_canceled",
 		)
+		failure.Response(w, "")
 	case redis.IsAuthError(err):
 		failed = true
 		code = "redis_authentication_failed"
@@ -42,12 +45,14 @@ func Redis(ctx context.Context, subject string, err error) {
 			"status", http.StatusInternalServerError,
 			"code", code,
 		)
+		failure.Response(w, "")
 	case errors.Is(err, redis.Nil):
 		logger.Warn("expired or nonexistent redis entry",
 			"err", err,
 			"status", http.StatusNotFound,
 			"code", subject+"_not_found",
 		)
+		failure.Response(w, "")
 	case isRedisError:
 		failed = true
 		code = subject + "_failed"
@@ -56,6 +61,7 @@ func Redis(ctx context.Context, subject string, err error) {
 			"status", http.StatusInternalServerError,
 			"code", code,
 		)
+		failure.Response(w, "")
 	default:
 		failed = true
 		code = subject + "_failed"
@@ -64,6 +70,7 @@ func Redis(ctx context.Context, subject string, err error) {
 			"status", http.StatusInternalServerError,
 			"code", code,
 		)
+		failure.Response(w, "")
 	}
 
 	if failed {
