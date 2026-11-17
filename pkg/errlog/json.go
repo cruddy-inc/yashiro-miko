@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"pkg/failure"
 	"pkg/logger"
 
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 )
 
-func Json(ctx context.Context, subject string, err error) {
+func Json(ctx context.Context, w http.ResponseWriter, subject string, err error) {
 	synErr, isSyntaxError := errors.AsType[*json.SyntaxError](err)
 	unmTypeErr, isUnmTypeErr := errors.AsType[*json.UnmarshalTypeError](err)
 	invUnmErr, isInvUnmErr := errors.AsType[*json.InvalidUnmarshalError](err)
@@ -30,6 +32,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"offset", synErr.Offset,
 			"code", subject+"_payload_syntax_error",
 		)
+		failure.Response(w, "")
 	case isUnmTypeErr:
 		logger.WarnContext(ctx, "invalid json type",
 			"err", err,
@@ -39,6 +42,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"offset", unmTypeErr.Offset,
 			"code", subject+"_payload_type_error",
 		)
+		failure.Response(w, "")
 	case isInvUnmErr:
 		code = subject + "_invalid_unmarshal_target"
 		failed = true
@@ -47,6 +51,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"target_type", invUnmErr.Type.String(),
 			"code", subject+"_invalid_unmarshal_target",
 		)
+		failure.Response(w, "")
 	case isMarhsalErr:
 		code = subject + "_marshal_failed"
 		failed = true
@@ -55,6 +60,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"target_type", marErr.Type.String(),
 			"code", subject+"_marshal_failed",
 		)
+		failure.Response(w, "")
 	case isUnsupTypeErr:
 		code = subject + "_unsupported_type"
 		failed = true
@@ -63,6 +69,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"target_type", unsupTypeErr.Type.String(),
 			"code", subject+"_unsupported_type",
 		)
+		failure.Response(w, "")
 	case isUnsupValErr:
 		code = subject + "_unsupported_value"
 		failed = true
@@ -72,6 +79,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"description", unsupValErr.Str,
 			"code", subject+"_unsupported_value",
 		)
+		failure.Response(w, "")
 	default:
 		code = subject + "_failed"
 		failed = true
@@ -79,6 +87,7 @@ func Json(ctx context.Context, subject string, err error) {
 			"err", err,
 			"code", subject+"_failed",
 		)
+		failure.Response(w, "")
 	}
 
 	if failed {
