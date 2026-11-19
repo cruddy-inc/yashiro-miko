@@ -34,7 +34,7 @@ CREATE TABLE yaotose.payer_payee (
     CONSTRAINT payer_payee_min_amount_check CHECK (min_amount > 0),
     max_amount BIGINT NOT NULL DEFAULT 0,
     CONSTRAINT payer_payee_max_amount_check CHECK (max_amount > 0),
-    first_transaction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_transaction TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    first_transaction BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM now())::bigint,
+    last_transaction BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM now())::bigint,
     CONSTRAINT payer_payee_pkey PRIMARY KEY (tenant_id, payer_hash, payee_hash)
 );
