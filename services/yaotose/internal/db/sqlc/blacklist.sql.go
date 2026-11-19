@@ -9,14 +9,19 @@ import (
 	"context"
 )
 
-const checkBlacklist = `-- name: CheckBlacklist :one
+const getBlacklist = `-- name: GetBlacklist :one
 SELECT EXISTS (
-    SELECT 1 FROM yaotose.blacklist WHERE iban_hash = $1 AND expires_at > NOW()
+    SELECT 1 FROM yaotose.blacklist WHERE iban_hash = $1 AND tenant_id = $2 AND expires_at > NOW()
 )
 `
 
-func (q *Queries) CheckBlacklist(ctx context.Context, ibanHash string) (bool, error) {
-	row := q.db.QueryRow(ctx, checkBlacklist, ibanHash)
+type GetBlacklistParams struct {
+	IbanHash string
+	TenantID string
+}
+
+func (q *Queries) GetBlacklist(ctx context.Context, arg GetBlacklistParams) (bool, error) {
+	row := q.db.QueryRow(ctx, getBlacklist, arg.IbanHash, arg.TenantID)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -37,7 +42,11 @@ INSERT INTO yaotose.blacklist (
     $4::text[],
     $5::text,
     now() + interval '24 hours'
-) ON CONFLICT DO NOTHING
+) ON CONFLICT (tenant_id, iban_hash) DO UPDATE SET 
+    key_id     = EXCLUDED.key_id,
+    reason     = EXCLUDED.reason,
+    ai_message = EXCLUDED.ai_message,
+    expires_at = GREATEST(blacklist.expires_at, EXCLUDED.expires_at)
 `
 
 type InsertBlacklistParams struct {
