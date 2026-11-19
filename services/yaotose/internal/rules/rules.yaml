@@ -1,0 +1,65 @@
+thresholds:
+  step_up: 40
+  hold: 75
+
+rules:
+  # Remote access + active call + unknown payee: coached scam -> HOLD for analyst callback
+  - id: R001
+    force: "HOLD"
+    when: "remote_access_detected && active_phone_call && !known_payee"
+
+  # Remote access tool open, >= EUR 100 to an unknown payee -> HOLD on its own
+  - id: R002
+    weight: 75
+    when: "remote_access_detected && !known_payee && amount_eur_minor >= 10000"
+
+  # On a call, new payee, >= EUR 250
+  - id: R003
+    weight: 25
+    when: "active_phone_call && !known_payee && amount_eur_minor >= 25000"
+
+  # On a call and the recipient name does not match the IBAN (stacks with R003 -> STEP_UP)
+  - id: R004
+    weight: 25
+    when: "active_phone_call && payee_verification == 'NO_MATCH'"
+
+  # First-time payee >= EUR 300 with a name mismatch
+  - id: R005
+    weight: 20
+    when: "!known_payee && payee_verification == 'NO_MATCH' && amount_eur_minor >= 30000"
+
+  # First-time transfer >= EUR 1,500
+  - id: R006
+    weight: 25
+    when: "!known_payee && amount_eur_minor >= 150000"
+
+  # Very large first-time transfer >= EUR 5,000 (stacks with R006 -> STEP_UP)
+  - id: R007
+    weight: 30
+    when: "!known_payee && amount_eur_minor >= 500000"
+
+  # Spike: > 5x the largest previous payment to this known payee, >= EUR 1,000
+  - id: R008
+    weight: 25
+    when: "known_payee && amount_eur_minor > max_minor * 5 && amount_eur_minor >= 100000"
+
+  # Test-then-drain booster: the previous payment to this payee was < 10 min ago and this one
+  # is > 4x the largest before it, >= EUR 1,000 (stacks with R008 -> STEP_UP)
+  - id: R009
+    weight: 15
+    when: "known_payee && (now - last_transaction) < 600 && amount_eur_minor > max_minor * 4 && amount_eur_minor >= 100000"
+
+  # 1-hour burst (retail): 5+ earlier attempts, and with this one >= EUR 500
+  - id: R010
+    weight: 20
+    when: "segment != 'SME' && count_1h >= 5 && (sum_1h + amount_eur_minor) >= 50000"
+
+  # Rapid 1-hour drain (retail): 3+ earlier attempts, and with this one >= EUR 3,000
+  - id: R011
+    weight: 25
+    when: "segment != 'SME' && count_1h >= 3 && (sum_1h + amount_eur_minor) >= 300000"
+
+  # Heavy 24-hour velocity (retail): 10+ earlier attempts, and with this one >= EUR 2,500
+  - id: R012
+    weight: 20
+    when: "segment != 'SME' && count_24h >= 10 && (sum_24h + amount_eur_minor) >= 250000"
