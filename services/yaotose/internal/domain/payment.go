@@ -8,6 +8,7 @@ type IncomingPayment struct {
 	PayerIban            string `json:"payer_iban"`
 	PayeeIban            string `json:"payee_iban"`
 	PayeeName            string `json:"payee_name"`
+	Segment              string `json:"segment"`
 	RemittanceInfo       string `json:"remittance_info"`
 	PayeeVerification    string `json:"payee_verification"`
 	ActivePhoneCall      bool   `json:"active_phone_call"`
