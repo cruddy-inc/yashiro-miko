@@ -9,39 +9,76 @@ import (
 	"context"
 )
 
+const getPayerPayee = `-- name: GetPayerPayee :one
+SELECT n_payments, total_amount, min_amount, max_amount, first_transaction, last_transaction 
+FROM yaotose.payer_payee 
+WHERE tenant_id = $1 AND payer_hash = $2 AND payee_hash = $3
+`
+
+type GetPayerPayeeParams struct {
+	TenantID  string
+	PayerHash string
+	PayeeHash string
+}
+
+type GetPayerPayeeRow struct {
+	NPayments        int32
+	TotalAmount      int64
+	MinAmount        int64
+	MaxAmount        int64
+	FirstTransaction int64
+	LastTransaction  int64
+}
+
+func (q *Queries) GetPayerPayee(ctx context.Context, arg GetPayerPayeeParams) (GetPayerPayeeRow, error) {
+	row := q.db.QueryRow(ctx, getPayerPayee, arg.TenantID, arg.PayerHash, arg.PayeeHash)
+	var i GetPayerPayeeRow
+	err := row.Scan(
+		&i.NPayments,
+		&i.TotalAmount,
+		&i.MinAmount,
+		&i.MaxAmount,
+		&i.FirstTransaction,
+		&i.LastTransaction,
+	)
+	return i, err
+}
+
 const insertPayerPayee = `-- name: InsertPayerPayee :exec
 INSERT INTO yaotose.payer_payee (
     tenant_id,
     payer_hash,
     payee_hash,
     key_id,
-    n_payments,
     total_amount,
     min_amount,
     max_amount,
+    first_transaction,
     last_transaction
 ) VALUES (
     $1::text,
     $2::text,
     $3::text,
     $4::text,
-    $5::int,
-    $6::bigint,
-    $7::bigint,
-    $8::bigint,
-    now()
-)
+    $5::bigint,
+    $5::bigint,
+    $5::bigint,
+    EXTRACT(EPOCH FROM now())::bigint,
+    EXTRACT(EPOCH FROM now())::bigint
+) ON CONFLICT (tenant_id, payer_hash, payee_hash) DO UPDATE SET
+    n_payments = payer_payee.n_payments+1,
+    total_amount = payer_payee.total_amount+EXCLUDED.total_amount,
+    min_amount = LEAST(payer_payee.min_amount, EXCLUDED.min_amount),
+    max_amount = GREATEST(payer_payee.max_amount, EXCLUDED.max_amount),
+    last_transaction = EXTRACT(EPOCH FROM now())::bigint
 `
 
 type InsertPayerPayeeParams struct {
-	TenantID    string
-	PayerHash   string
-	PayeeHash   string
-	KeyID       string
-	NPayments   int32
-	TotalAmount int64
-	MinAmount   int64
-	MaxAmount   int64
+	TenantID  string
+	PayerHash string
+	PayeeHash string
+	KeyID     string
+	Amount    int64
 }
 
 func (q *Queries) InsertPayerPayee(ctx context.Context, arg InsertPayerPayeeParams) error {
@@ -50,10 +87,7 @@ func (q *Queries) InsertPayerPayee(ctx context.Context, arg InsertPayerPayeePara
 		arg.PayerHash,
 		arg.PayeeHash,
 		arg.KeyID,
-		arg.NPayments,
-		arg.TotalAmount,
-		arg.MinAmount,
-		arg.MaxAmount,
+		arg.Amount,
 	)
 	return err
 }

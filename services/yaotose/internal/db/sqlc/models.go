@@ -27,6 +27,6 @@ type YaotosePayerPayee struct {
 	TotalAmount      int64
 	MinAmount        int64
 	MaxAmount        int64
-	FirstTransaction pgtype.Timestamptz
-	LastTransaction  pgtype.Timestamptz
+	FirstTransaction int64
+	LastTransaction  int64
 }
