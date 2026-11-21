@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 )
 
-func HMAC(secretKey []byte, normalizedIBAN string) []byte {
+func HMAC(secretKey []byte, normalizedIBAN string) string {
 	match := hmac.New(sha256.New, secretKey)
 	match.Write([]byte(normalizedIBAN))
-	return match.Sum(nil)
+	return string(match.Sum(nil))
 }
