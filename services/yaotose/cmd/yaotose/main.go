@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
 )
 
@@ -73,6 +74,15 @@ func start() int {
 		return 1
 	}
 
+	kafkaAddr := os.Getenv("KAFKA_ADDR")
+	if kafkaAddr == "" {
+		err := failure.EmptyValue("KAFKA_ADDR")
+		err = failure.Wrap("yaotose.main.environmental.variable.kafka.address.fetch", err)
+		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalEmptyValueError, err)
+		return 1
+	}
+
 	poolCtx, poolSpan := tracer.Start(rootCtx, "yaotose.main.pool.connection.create")
 	defer poolSpan.End()
 	conf, err := pgxpool.ParseConfig(databaseURL)
@@ -121,7 +131,17 @@ func start() int {
 		PoolTimeout:  3 * time.Millisecond,
 	})
 
-	ya := httpy.New(secretKey, redisClient, queries, goCelEng)
+	kafkaClient, err := kgo.NewClient(
+		kgo.SeedBrokers(kafkaAddr),
+	)
+	if err != nil {
+		err = failure.Wrap("yaotose.main.kafka.client.create", err)
+		fmt.Fprint(os.Stderr, "yaotose.main: %v\n", err)
+		errlog.General(decisionCtx, nil, "kafka_client_create", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	ya := httpy.New(secretKey, redisClient, queries, pool, goCelEng, kafkaClient)
 
 	r := chi.NewRouter()
 
