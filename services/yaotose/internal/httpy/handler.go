@@ -75,7 +75,9 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 
 	amountCent := normalize.AmountToCent(req.Amount)
 
-	amountEuro, err := normalize.AmountToEurCent(normalizeCtx, amountCent, normalize.Upper(req.Currency))
+	c := normalize.AmountNew(y.Currency)
+
+	amountEuro, err := c.AmountToEurCent(normalizeCtx, amountCent, normalize.Upper(req.Currency))
 	if err != nil {
 		err = failure.Wrap("yaotose.http.amount.convert.euro", err)
 		errlog.Resource(normalizeCtx, w, "amount_convert_to_euro", failure.MalformedError, err)
