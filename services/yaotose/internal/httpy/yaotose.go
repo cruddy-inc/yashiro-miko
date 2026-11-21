@@ -1,6 +1,7 @@
 package httpy
 
 import (
+	"tsubaki/domain"
 	db "yaotose/internal/db/sqlc"
 	"yaotose/internal/rules"
 
@@ -16,6 +17,7 @@ type Yaotose struct {
 	Pool      *pgxpool.Pool
 	Engine    *rules.Engine
 	Kafka     *kgo.Client
+	Currency  *domain.Currency
 }
 
 func New(secretKey string, redis *redis.Client, queries *db.Queries, pool *pgxpool.Pool, engine *rules.Engine, kafka *kgo.Client) *Yaotose {
