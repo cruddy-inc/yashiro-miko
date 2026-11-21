@@ -38,3 +38,14 @@ CREATE TABLE yaotose.payer_payee (
     last_transaction BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM now())::bigint,
     CONSTRAINT payer_payee_pkey PRIMARY KEY (tenant_id, payer_hash, payee_hash)
 );
+
+CREATE TABLE yaotose.cases_opened (
+    case_id TEXT NOT NULL,
+    CONSTRAINT cases_opened_case_id_pkey PRIMARY KEY (case_id),
+    kafka_topic TEXT NOT NULL,
+    kafka_case TEXT NOT NULL,
+    payload BYTEA NOT NULL,
+    status TEXT NOT NULL,
+    created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM now())::bigint,
+    published_at BIGINT
+);
