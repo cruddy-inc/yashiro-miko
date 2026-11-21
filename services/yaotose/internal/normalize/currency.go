@@ -6,9 +6,18 @@ import (
 	"math"
 	"strconv"
 	"strings"
-
-	"github.com/redis/go-redis/v9"
+	"tsubaki/domain"
 )
+
+type Amount struct {
+	Currency *domain.Currency
+}
+
+func AmountNew(currency *domain.Currency) *Amount {
+	return &Amount{
+		Currency: currency,
+	}
+}
 
 // Note on development: I love this strategy so much
 func AmountToCent(amount string) string {
@@ -43,7 +52,7 @@ func AmountToCent(amount string) string {
 	return c.String()
 }
 
-func AmountToEurCent(ctx context.Context, redisC *redis.Client, amountCent string, normalizedCurrency string) (int64, error) {
+func (a *Amount) AmountToEurCent(ctx context.Context, amountCent string, normalizedCurrency string) (int64, error) {
 	cents, err := strconv.ParseInt(amountCent, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid amount cents %q: %w", amountCent, err)
@@ -53,15 +62,10 @@ func AmountToEurCent(ctx context.Context, redisC *redis.Client, amountCent strin
 		return cents, nil
 	}
 
-	currToEurStr, err := redisC.HGet(ctx, "yaotose:currency", normalizedCurrency).Result()
-	if err != nil {
-		return 0, fmt.Errorf("get rate for %s: %w", normalizedCurrency, err)
+	rate := a.Currency.Rate[normalizedCurrency]
+	if rate == 0.0 {
+		return 0.0, fmt.Errorf("unknown currency: %s", normalizedCurrency)
 	}
 
-	rate, err := strconv.ParseFloat(currToEurStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid rate %q for %s: %w", currToEurStr, normalizedCurrency, err)
-	}
-
-	return int64(math.Round(float64(cents) * rate)), nil
+	return int64(math.Round(rate) * float64(cents)), nil
 }
