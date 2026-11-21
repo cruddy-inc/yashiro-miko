@@ -18,6 +18,16 @@ type YaotoseBlacklist struct {
 	ExpiresAt     pgtype.Timestamptz
 }
 
+type YaotoseCasesOpened struct {
+	CaseID      string
+	KafkaTopic  string
+	KafkaCase   string
+	Payload     []byte
+	Status      string
+	CreatedAt   int64
+	PublishedAt *int64
+}
+
 type YaotosePayerPayee struct {
 	TenantID         string
 	PayerHash        string
