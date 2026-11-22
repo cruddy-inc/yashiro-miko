@@ -11,16 +11,16 @@ import (
 )
 
 type Yaotose struct {
-	SecretKey string
+	SecretKey *domain.RerollStore
 	Redis     *redis.Client
 	Queries   *db.Queries
 	Pool      *pgxpool.Pool
 	Engine    *rules.Engine
 	Kafka     *kgo.Client
-	Currency  *domain.Currency
+	Currency  *domain.CurrencyStore
 }
 
-func New(secretKey string, redis *redis.Client, queries *db.Queries, pool *pgxpool.Pool, engine *rules.Engine, kafka *kgo.Client) *Yaotose {
+func New(secretKey *domain.RerollStore, redis *redis.Client, queries *db.Queries, pool *pgxpool.Pool, engine *rules.Engine, kafka *kgo.Client, currency *domain.CurrencyStore) *Yaotose {
 
 	return &Yaotose{
 		SecretKey: secretKey,
@@ -29,5 +29,6 @@ func New(secretKey string, redis *redis.Client, queries *db.Queries, pool *pgxpo
 		Pool:      pool,
 		Engine:    engine,
 		Kafka:     kafka,
+		Currency:  currency,
 	}
 }
