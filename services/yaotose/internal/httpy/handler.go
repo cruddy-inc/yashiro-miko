@@ -71,7 +71,15 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payerToken := crypto.HMAC([]byte(y.SecretKey), payerNormalized)
+	secretKey := y.SecretKey.Load()
+	if secretKey == nil {
+		err := failure.InternalGeneral("secret_key_load", "empty secret key structure")
+		err = failure.Wrap("yaotose.http.secret.key.load.check", err)
+		errlog.Internal(normalizeCtx, w, "secret_key_load", failure.InternalEmptyValueError, err)
+		return
+	}
+
+	payerToken := crypto.HMAC([]byte(secretKey.CurrentSecretKey), payerNormalized)
 
 	amountCent := normalize.AmountToCent(req.Amount)
 
@@ -84,14 +92,18 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payeeToken := crypto.HMAC([]byte(y.SecretKey), payeeNormalized)
+	currPayeeToken := crypto.HMAC([]byte(secretKey.CurrentSecretKey), payeeNormalized)
+	prevPayeeToken := crypto.HMAC([]byte(secretKey.PreviousSecretKey), payeeNormalized)
 
 	blacklistCtx, blacklistSpan := tracer.Start(rootCtx, "yaotose.http.payee.blacklist.check")
 	defer blacklistSpan.End()
 	// Fail-Fast
-	blacklistTimeout, cancelBlacklist := context.WithTimeout(blacklistCtx, 10*time.Millisecond)
+	blacklistTimeout, cancelBlacklist := context.WithTimeout(blacklistCtx, 12*time.Millisecond)
 	defer cancelBlacklist()
-	_, err = pipe.Get(blacklistTimeout, "yaotose:payee:blacklist:"+payeeToken).Result()
+	_, err = pipe.Get(blacklistTimeout, "yaotose:payee:blacklist:"+currPayeeToken).Result()
+	if err != nil {
+		_, err = pipe.Get(blacklistTimeout, "yaotose:payee:blacklist:"+prevPayeeToken).Result()
+	}
 	switch {
 	// payee is not blacklisted
 	case err == redis.Nil:
@@ -107,8 +119,9 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		postgresTimeout, cancelPSLQ := context.WithTimeout(blacklistCtx, 25*time.Millisecond)
 		defer cancelPSLQ()
 		exists, err := queries.GetBlacklist(postgresTimeout, db.GetBlacklistParams{
-			IbanHash: payeeToken,
-			TenantID: req.TenantID,
+			CurrIbanHash: currPayeeToken,
+			PrevIbanHash: prevPayeeToken,
+			TenantID:     req.TenantID,
 		})
 		if err != nil {
 			err = failure.Wrap("yaotose.database.payee.blacklist.check", err)
@@ -124,7 +137,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		// Nothing matches, payee is not blacklisted
 	}
 
-	key := fmt.Sprintf("yaotose:%s:%s:%s:last20", string(req.TenantID), payerToken, payeeToken)
+	key := fmt.Sprintf("yaotose:%s:%s:%s:last20", string(req.TenantID), payerToken, currPayeeToken)
 
 	historyCtx, historySpan := tracer.Start(rootCtx, "yaotose.http.transaction.history.fetch")
 	defer historySpan.End()
@@ -180,7 +193,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	info, err := queries.GetPayerPayee(historyCtx, db.GetPayerPayeeParams{
 		TenantID:  req.TenantID,
 		PayerHash: payerToken,
-		PayeeHash: payeeToken,
+		PayeeHash: currPayeeToken,
 	})
 	if err != nil {
 		knownPayee = false
@@ -224,7 +237,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	defer outboxSpan.End()
 
 	caseId := uuid.Must(uuid.NewV7()).String()
-	caseForm := fmt.Sprintf("case.%s.%s.%s", req.TenantID, payerToken, payeeToken)
+	caseForm := fmt.Sprintf("case.%s.%s.%s", req.TenantID, payerToken, currPayeeToken)
 
 	var payerToPaye *yaotosev1.PayerToPayeeInteraction
 	if knownPayee {
@@ -245,7 +258,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		CaseId:          caseId,
 		TenantId:        req.TenantID,
 		PayerIbanHash:   payerToken,
-		PayeeIbanHash:   payeeToken,
+		PayeeIbanHash:   currPayeeToken,
 		YaotoseDecision: verdict.Decision,
 		RulesFired: &yaotosev1.YaotoseData{
 			Rules:  verdict.SuspicionAlert,
