@@ -8,7 +8,6 @@ import (
 	"pkg/errlog"
 	"pkg/failure"
 	"pkg/logger"
-	"sync/atomic"
 	"time"
 	"tsubaki/domain"
 
@@ -20,7 +19,7 @@ import (
 type CurrencyTrackWorker struct {
 	river.WorkerDefaults[CurrencyTrackArgs]
 	httpClient http.Client
-	Rates      atomic.Pointer[domain.Currency]
+	Rates      *domain.CurrencyStore
 }
 
 type Currency string
