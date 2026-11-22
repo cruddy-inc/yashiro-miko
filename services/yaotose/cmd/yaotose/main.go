@@ -9,6 +9,7 @@ import (
 	"pkg/failure"
 	"pkg/logger"
 	"time"
+	"tsubaki/domain"
 	db "yaotose/internal/db/sqlc"
 	"yaotose/internal/httpy"
 	"yaotose/internal/rules"
@@ -141,7 +142,7 @@ func start() int {
 		return 1
 	}
 
-	ya := httpy.New(secretKey, redisClient, queries, pool, goCelEng, kafkaClient)
+	ya := httpy.New(&domain.RerollStore{}, redisClient, queries, pool, goCelEng, kafkaClient, &domain.CurrencyStore{})
 
 	r := chi.NewRouter()
 
