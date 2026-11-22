@@ -10,10 +10,10 @@ import (
 )
 
 type Amount struct {
-	Currency *domain.Currency
+	Currency *domain.CurrencyStore
 }
 
-func AmountNew(currency *domain.Currency) *Amount {
+func AmountNew(currency *domain.CurrencyStore) *Amount {
 	return &Amount{
 		Currency: currency,
 	}
@@ -62,10 +62,15 @@ func (a *Amount) AmountToEurCent(ctx context.Context, amountCent string, normali
 		return cents, nil
 	}
 
-	rate := a.Currency.Rate[normalizedCurrency]
+	curr := a.Currency.Load()
+	if curr == nil {
+		return 0, fmt.Errorf("currency rates not initialized")
+	}
+
+	rate := curr.Rate[normalizedCurrency]
 	if rate == 0.0 {
 		return 0.0, fmt.Errorf("unknown currency: %s", normalizedCurrency)
 	}
 
-	return int64(math.Round(rate) * float64(cents)), nil
+	return int64(math.Round(rate * float64(cents))), nil
 }
