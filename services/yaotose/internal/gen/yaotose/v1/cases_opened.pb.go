@@ -276,7 +276,7 @@ type Envelope struct {
 	CurrentTransactionInfo  *CurrentTransactionInfo  `protobuf:"bytes,7,opt,name=current_transaction_info,json=currentTransactionInfo,proto3" json:"current_transaction_info,omitempty"`
 	PayerToPayeeInteraction *PayerToPayeeInteraction `protobuf:"bytes,8,opt,name=payer_to_payee_interaction,json=payerToPayeeInteraction,proto3" json:"payer_to_payee_interaction,omitempty"`
 	KafkaTopic              string                   `protobuf:"bytes,9,opt,name=kafka_topic,json=kafkaTopic,proto3" json:"kafka_topic,omitempty"`
-	KafkaCase               string                   `protobuf:"bytes,10,opt,name=kafka_case,json=kafkaCase,proto3" json:"kafka_case,omitempty"`
+	KafkaCase               []byte                   `protobuf:"bytes,10,opt,name=kafka_case,json=kafkaCase,proto3" json:"kafka_case,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -374,11 +374,11 @@ func (x *Envelope) GetKafkaTopic() string {
 	return ""
 }
 
-func (x *Envelope) GetKafkaCase() string {
+func (x *Envelope) GetKafkaCase() []byte {
 	if x != nil {
 		return x.KafkaCase
 	}
-	return ""
+	return nil
 }
 
 var File_yaotose_v1_cases_opened_proto protoreflect.FileDescriptor
@@ -423,7 +423,7 @@ const file_yaotose_v1_cases_opened_proto_rawDesc = "" +
 	"kafkaTopic\x12\x1d\n" +
 	"\n" +
 	"kafka_case\x18\n" +
-	" \x01(\tR\tkafkaCaseBWZUgithub.com/cruddy-inc/yashiro-miko/services/yaotose/internal/gen/yaotose/v1;yaotosev1b\x06proto3"
+	" \x01(\fR\tkafkaCaseBWZUgithub.com/cruddy-inc/yashiro-miko/services/yaotose/internal/gen/yaotose/v1;yaotosev1b\x06proto3"
 
 var (
 	file_yaotose_v1_cases_opened_proto_rawDescOnce sync.Once
