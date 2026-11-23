@@ -115,7 +115,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		errlog.Resource(blacklistCtx, w, "payee_blacklist_check", failure.ForbiddenError, err)
 		return
 	// Redis might be down, fallback to postgres
-	case err != nil:
+	default:
 		postgresTimeout, cancelPSLQ := context.WithTimeout(blacklistCtx, 25*time.Millisecond)
 		defer cancelPSLQ()
 		exists, err := queries.GetBlacklist(postgresTimeout, db.GetBlacklistParams{
@@ -310,9 +310,6 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		Key:   []byte(caseForm),
 		Value: payload,
 	}
-
-	// TODO: Don't forget to create a background process to monitor what didn't get sent to kafka
-	Just_A_Planned_Error
 
 	kafkaTimeout, kafkaCancel := context.WithTimeout(outboxCtx, 2*time.Second)
 	defer kafkaCancel()
