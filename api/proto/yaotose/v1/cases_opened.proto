@@ -40,5 +40,5 @@ message Envelope {
   CurrentTransactionInfo current_transaction_info = 7;
   PayerToPayeeInteraction payer_to_payee_interaction = 8;
   string kafka_topic = 9;
-  string kafka_case = 10;
+  bytes kafka_case = 10;
 }
