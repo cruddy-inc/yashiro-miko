@@ -18,7 +18,7 @@ import (
 
 type CurrencyTrackWorker struct {
 	river.WorkerDefaults[CurrencyTrackArgs]
-	httpClient http.Client
+	HttpClient http.Client
 	Rates      *domain.CurrencyStore
 }
 
@@ -44,7 +44,7 @@ func (c *CurrencyTrackWorker) Work(ctx context.Context, job *river.Job[CurrencyT
 		return err
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.HttpClient.Do(req)
 	if err != nil {
 		err = failure.Wrap("tsubaki.currency.tracker.request.send", err)
 		errlog.General(requestCtx, nil, "request_send", failure.InternalGeneralError, err)
