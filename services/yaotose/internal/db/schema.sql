@@ -43,7 +43,7 @@ CREATE TABLE yaotose.cases_opened (
     case_id TEXT NOT NULL,
     CONSTRAINT cases_opened_case_id_pkey PRIMARY KEY (case_id),
     kafka_topic TEXT NOT NULL,
-    kafka_case TEXT NOT NULL,
+    kafka_case BYTEA NOT NULL,
     payload BYTEA NOT NULL,
     status TEXT NOT NULL,
     created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM now())::bigint,
