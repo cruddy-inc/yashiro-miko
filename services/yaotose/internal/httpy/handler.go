@@ -238,6 +238,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 
 	caseId := uuid.Must(uuid.NewV7()).String()
 	caseForm := fmt.Sprintf("case.%s.%s.%s", req.TenantID, payerToken, currPayeeToken)
+	caseByte := []byte(caseForm)
 
 	var payerToPaye *yaotosev1.PayerToPayeeInteraction
 	if knownPayee {
@@ -274,7 +275,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		},
 		PayerToPayeeInteraction: payerToPaye,
 		KafkaTopic:              "cases.opened",
-		KafkaCase:               caseForm,
+		KafkaCase:               caseByte,
 	}
 
 	payload, err := proto.Marshal(&value)
@@ -287,7 +288,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	rows, err := queries.InsertCasesOpened(outboxCtx, db.InsertCasesOpenedParams{
 		CaseID:     caseId,
 		KafkaTopic: "cases.opened",
-		KafkaCase:  caseForm,
+		KafkaCase:  caseByte,
 		Payload:    payload,
 		Status:     "PENDING",
 	})
