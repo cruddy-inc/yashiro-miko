@@ -1,6 +1,10 @@
 from .kinds import ErrorKind
 
 
+# ==============================================================================
+# ROOT APPLICATION EXCEPTION
+# ==============================================================================
+
 class AppError(Exception):
     kind: ErrorKind
     status_code: int = 500
@@ -22,6 +26,11 @@ class AppError(Exception):
         if cause is not None:
             self.__cause__ = cause
 
+
+
+# ==============================================================================
+# HTTP / API TRANSPORT ERRORS
+# ==============================================================================
 
 class InvalidError(AppError):
     kind = ErrorKind.INVALID
@@ -63,3 +72,22 @@ class InternalError(AppError):
     kind = ErrorKind.INTERNAL
     status_code = 500
     default_message = "An unexpected server error occurred"
+
+# ==============================================================================
+# DOMAIN / FEATURE SPECIFIC ERRORS (EXAMPLES)
+# ==============================================================================
+
+class DirectoryNotFoundError(NotFoundError):
+    default_message = "The requested directory does not exist."
+
+
+class PathIsNotADirectoryError(InvalidError):
+    default_message = "The specified path is not a directory."
+
+
+class InsufficientPermissionsError(ForbiddenError):
+    default_message = "You do not have sufficient permissions to execute this action."
+
+
+class ResourceFileNotFoundError(NotFoundError):
+    default_message = "The requested file does not exist."
