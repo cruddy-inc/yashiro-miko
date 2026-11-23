@@ -22,7 +22,7 @@ type KeyRerollWorker struct {
 	Secret *domain.RerollStore
 }
 
-func (k *KeyRerollWorker) Work(ctx context.Context) error {
+func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs]) error {
 	tracer := otel.Tracer("key_reroll")
 	rootCtx, rootSpan := tracer.Start(ctx, "tsubaki.key.reroll.start")
 	defer rootSpan.End()
