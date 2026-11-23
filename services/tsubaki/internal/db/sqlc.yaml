@@ -2,6 +2,7 @@ version: "2"
 sql:
   - schema:
       - "../../../oumi/internal/db/schema.sql"
+      - "../../../yaotose/internal/db/schema.sql"
     queries: "queries/"
     engine: "postgresql"
     gen:
