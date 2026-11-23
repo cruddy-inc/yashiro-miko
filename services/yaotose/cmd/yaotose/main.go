@@ -94,7 +94,7 @@ func start() int {
 		return 1
 	}
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), conf)
+	pool, err := pgxpool.NewWithConfig(poolCtx, conf)
 	if err != nil {
 		err = failure.Wrap("yaotose.main.pool.connection.create.from.config", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
