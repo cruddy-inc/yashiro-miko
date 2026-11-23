@@ -9,39 +9,6 @@ import (
 	"context"
 )
 
-const getFailedCasesOpened = `-- name: GetFailedCasesOpened :many
-SELECT case_id, kafka_topic, kafka_case, payload, status, created_at, published_at FROM yaotose.cases_opened
-WHERE status = "PENDING" AND published_at IS NOT NULL
-`
-
-func (q *Queries) GetFailedCasesOpened(ctx context.Context) ([]YaotoseCasesOpened, error) {
-	rows, err := q.db.Query(ctx, getFailedCasesOpened)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []YaotoseCasesOpened
-	for rows.Next() {
-		var i YaotoseCasesOpened
-		if err := rows.Scan(
-			&i.CaseID,
-			&i.KafkaTopic,
-			&i.KafkaCase,
-			&i.Payload,
-			&i.Status,
-			&i.CreatedAt,
-			&i.PublishedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const insertCasesOpened = `-- name: InsertCasesOpened :execrows
 INSERT INTO yaotose.cases_opened (
     case_id,
@@ -52,7 +19,7 @@ INSERT INTO yaotose.cases_opened (
 ) VALUES (
     $1::text,
     $2::text,
-    $3::text,
+    $3::bytea,
     $4::bytea,
     $5::text
 ) ON CONFLICT (case_id) DO UPDATE SET 
@@ -62,7 +29,7 @@ INSERT INTO yaotose.cases_opened (
 type InsertCasesOpenedParams struct {
 	CaseID     string
 	KafkaTopic string
-	KafkaCase  string
+	KafkaCase  []byte
 	Payload    []byte
 	Status     string
 }
@@ -82,7 +49,8 @@ func (q *Queries) InsertCasesOpened(ctx context.Context, arg InsertCasesOpenedPa
 }
 
 const insertCasesOpenedPublished = `-- name: InsertCasesOpenedPublished :exec
-UPDATE yaotose.cases_opened SET 
+UPDATE yaotose.cases_opened SET
+    status = "SENT",
     published_at = EXTRACT(EPOCH FROM now())::bigint
 WHERE case_id = $1
 `

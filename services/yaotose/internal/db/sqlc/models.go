@@ -21,7 +21,7 @@ type YaotoseBlacklist struct {
 type YaotoseCasesOpened struct {
 	CaseID      string
 	KafkaTopic  string
-	KafkaCase   string
+	KafkaCase   []byte
 	Payload     []byte
 	Status      string
 	CreatedAt   int64
