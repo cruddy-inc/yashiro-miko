@@ -5,6 +5,7 @@ import "cel.dev/cel-go/cel"
 type Thresholds struct {
 	StepUp int `yaml:"step_up"`
 	Hold   int `yaml:"hold"`
+	Block  int `yaml:"block"`
 }
 
 type Rule struct {

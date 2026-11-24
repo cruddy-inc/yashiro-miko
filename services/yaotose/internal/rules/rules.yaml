@@ -1,6 +1,7 @@
 thresholds:
   step_up: 40
   hold: 75
+  block: 100
 
 rules:
   # Remote access + active call + unknown payee: coached scam -> HOLD for analyst callback

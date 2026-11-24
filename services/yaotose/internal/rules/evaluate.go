@@ -37,6 +37,9 @@ func (e *Engine) Evaluate(assingVariables map[string]any) (*domain.Verdict, erro
 	if weight >= e.Thresholds.Hold {
 		decision = "HOLD"
 	}
+	if weight >= e.Thresholds.Block {
+		decision = "BLOCK"
+	}
 
 	return &domain.Verdict{
 		SuspicionAlert: matchRule,
