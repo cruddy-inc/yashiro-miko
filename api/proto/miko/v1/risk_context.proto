@@ -5,6 +5,23 @@ package miko.v1;
 option go_package = "github.com/cruddy-inc/yashiro-miko/services/tsubaki/internal/gen/miko/v1;mikov1";
 
 // -----------------------------------------------------------------------------
+// Service
+// -----------------------------------------------------------------------------
+
+service RiskContextService {
+  rpc GetRiskContext (GetRiskContextRequest) returns (FraudEnrichmentContext);
+}
+
+// -----------------------------------------------------------------------------
+// Request / Response Messages
+// -----------------------------------------------------------------------------
+
+message GetRiskContextRequest {
+  string payee_hashed_iban = 1;
+  string payer_hashed_iban = 2; // Required for PayerSecurityContext & co-location metrics
+}
+
+// -----------------------------------------------------------------------------
 // Enums
 // -----------------------------------------------------------------------------
 
