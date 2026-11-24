@@ -164,7 +164,7 @@ func start() int {
 		Kafka:   kafkaClient,
 	}
 	currencyWorker := &currency.CurrencyTrackWorker{
-		HttpClient: httpClient,
+		HttpClient: &httpClient,
 		Rates:      &domain.CurrencyStore{},
 	}
 

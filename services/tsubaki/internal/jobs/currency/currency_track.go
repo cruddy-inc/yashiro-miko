@@ -18,7 +18,7 @@ import (
 
 type CurrencyTrackWorker struct {
 	river.WorkerDefaults[CurrencyTrackArgs]
-	HttpClient http.Client
+	HttpClient domain.HttpDo
 	Rates      *domain.CurrencyStore
 }
 
