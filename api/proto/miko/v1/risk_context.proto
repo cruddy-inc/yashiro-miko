@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package miko.v1;
+
+option go_package = "github.com/cruddy-inc/yashiro-miko/services/tsubaki/internal/gen/miko/v1;mikov1";
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum InstitutionType {
+  INSTITUTION_TYPE_UNSPECIFIED = 0;
+  INSTITUTION_TYPE_RETAIL_BANK = 1;
+  INSTITUTION_TYPE_NEOBANK = 2;
+  INSTITUTION_TYPE_CRYPTO_OFFRAMP = 3;
+  INSTITUTION_TYPE_P2P_GATEWAY = 4;
+}
+
+// -----------------------------------------------------------------------------
+// Main for AI Evaluation
+// -----------------------------------------------------------------------------
+
+message FraudEnrichmentContext {
+  PayeeProfile payee_profile = 1;
+  PayerSecurityContext payer_security = 2;
+  PayeeNeighborhood payee_neighborhood = 3;
+}
+
+// -----------------------------------------------------------------------------
+// Models for the Main (Submain)
+// -----------------------------------------------------------------------------
+
+// Global Payee behavior independent of the current payer
+message PayeeProfile {
+  string payee_identifier_hash = 1;
+  int32 account_age_days = 2;
+  bool is_pep = 3;
+  
+  // Inbound and outbound information
+  int32 unique_inbound_senders_24h = 4;
+  int32 unique_outbound_recipients_24h = 5;
+  int64 total_inbound_volume_24h_minor = 6;
+  int64 total_outbound_volume_24h_minor = 7;
+  float outbound_to_inbound_ratio_24h = 8;
+  
+  // Indicates if the funds comes from suspicious sources
+  bool has_suspicious_funding_sources = 9;
+}
+
+// Security indicators for the payer attempting the transaction
+message PayerSecurityContext {
+  bool is_trusted_device = 1;
+  bool is_proxy_session = 2;
+  bool ip_country_mismatch = 3; // Session IP country != Customer registration country
+  
+  // Account Takeover (ATO) Signals
+  bool phone_changed_last_72h = 4;
+  bool email_changed_last_72h = 5;
+  int32 failed_auth_attempts_24h = 6;
+  bool password_reset_last_24h = 7;
+}
+
+// Graph & Network connections of the payee
+message PayeeNeighborhood {
+  repeated CounterpartySummary top_outbound_destinations = 1;
+  
+  // Co-location triggers between Payer & Payee or wider network
+  bool shares_device_with_payer = 2;
+  bool shares_ip_subnet_with_payer = 3;
+  
+  // Graph propagation scores
+  float mule_score_one_hop = 4;
+  float mule_score_two_hops = 5;
+}
+
+message CounterpartySummary {
+  InstitutionType institution_type = 1;
+  int64 total_volume_transferred_minor = 2;
+  int32 transaction_count = 3;
+}
