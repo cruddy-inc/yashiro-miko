@@ -64,31 +64,11 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payerNormalized, err := normalize.NormalizeIBAN(req.PayerIban)
-	if err != nil {
-		err = failure.Wrap("yaotose.http.payee.iban.normalize", err)
-		errlog.General(normalizeCtx, w, "payee_iban_normalize", failure.InvalidError, err)
-		return
-	}
-
 	secretKey := y.SecretKey.Load()
 	if secretKey == nil {
 		err := failure.InternalGeneral("secret_key_load", "empty secret key structure")
 		err = failure.Wrap("yaotose.http.secret.key.load.check", err)
 		errlog.Internal(normalizeCtx, w, "secret_key_load", failure.InternalEmptyValueError, err)
-		return
-	}
-
-	payerToken := crypto.HMAC([]byte(secretKey.CurrentSecretKey), payerNormalized)
-
-	amountCent := normalize.AmountToCent(req.Amount)
-
-	c := normalize.AmountNew(y.Currency)
-
-	amountEuro, err := c.AmountToEurCent(normalizeCtx, amountCent, normalize.Upper(req.Currency))
-	if err != nil {
-		err = failure.Wrap("yaotose.http.amount.convert.euro", err)
-		errlog.Resource(normalizeCtx, w, "amount_convert_to_euro", failure.MalformedError, err)
 		return
 	}
 
@@ -137,6 +117,55 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		// Nothing matches, payee is not blacklisted
 	}
 
+	payerNormalized, err := normalize.NormalizeIBAN(req.PayerIban)
+	if err != nil {
+		err = failure.Wrap("yaotose.http.payer.iban.normalize", err)
+		errlog.General(normalizeCtx, w, "payer_iban_normalize", failure.InvalidError, err)
+		return
+	}
+
+	if len(payerNormalized) < 15 || len(payeeNormalized) < 15 {
+		err := failure.Invalid("iban_length", "invalid iban length")
+		err = failure.Wrap("yaotose.http.payeer.payee.iban.length.check", err)
+		errlog.Resource(normalizeCtx, w, "iban_length_check", failure.InvalidError, err)
+		return
+	}
+
+	var differentCountries bool
+	var sameBank *bool
+
+	if payerNormalized[0:1] != payeeNormalized[0:1] {
+		differentCountries = true
+		sameBank = nil
+	} else {
+		payerC := normalize.GetBankIdentifier(payerNormalized)
+		payeeC := normalize.GetBankIdentifier(payeeNormalized)
+		if payerC != payeeC {
+			differentCountries = false
+			sameBank = func(b bool) *bool {
+				return &b
+			}(false)
+		} else {
+			differentCountries = false
+			sameBank = func(b bool) *bool {
+				return &b
+			}(true)
+		}
+	}
+
+	payerToken := crypto.HMAC([]byte(secretKey.CurrentSecretKey), payerNormalized)
+
+	amountCent := normalize.AmountToCent(req.Amount)
+
+	c := normalize.AmountNew(y.Currency)
+
+	amountEuro, err := c.AmountToEurCent(normalizeCtx, amountCent, normalize.Upper(req.Currency))
+	if err != nil {
+		err = failure.Wrap("yaotose.http.amount.convert.euro", err)
+		errlog.Resource(normalizeCtx, w, "amount_convert_to_euro", failure.MalformedError, err)
+		return
+	}
+
 	key := fmt.Sprintf("yaotose:%s:%s:%s:last20", string(req.TenantID), payerToken, currPayeeToken)
 
 	historyCtx, historySpan := tracer.Start(rootCtx, "yaotose.http.transaction.history.fetch")
@@ -146,11 +175,6 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 
 	// We get a slice of the values
 	data := pipe.LRange(rulesTimeout, key, 0, 19)
-	if err != nil {
-		err = failure.Wrap("yaotose.redis.transaction.history24.fetch", err)
-		errlog.Redis(historyCtx, w, "payer_payee_history24_fetch", err)
-		return
-	}
 
 	var transactionsWithin24 int
 	var amountWithin24 int64
@@ -160,6 +184,7 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	items, err := data.Result()
 	if err != nil {
 		err = failure.InternalGeneral("redis_data_parse", "failed to parse redis data")
+		err = failure.Wrap("yaotose.redis.transaction.history24.fetch", err)
 		errlog.Redis(historyCtx, w, "redis_data_parse", err)
 		return
 	}
@@ -189,14 +214,22 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		amountWithin24 += am
 	}
 
-	knownPayee := true
+	var knownPayee bool
+	var nPayments *int32
+	var maxAmount *int64
+	var firstTransaction *int64
+	var lastTransaction *int64
 	info, err := queries.GetPayerPayee(historyCtx, db.GetPayerPayeeParams{
 		TenantID:  req.TenantID,
 		PayerHash: payerToken,
 		PayeeHash: currPayeeToken,
 	})
-	if err != nil {
-		knownPayee = false
+	if err == nil {
+		knownPayee = true
+		nPayments = &info.NPayments
+		maxAmount = &info.MaxAmount
+		firstTransaction = &info.FirstTransaction
+		lastTransaction = &info.LastTransaction
 	}
 
 	evalCtx, evalSpan := tracer.Start(rootCtx, "yaotose.http.cel.decision.evaluate")
@@ -207,11 +240,11 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		"known_payee":            knownPayee,
 		"amount_eur_minor":       amountEuro,
 		"payee_verification":     req.PayeeVerification,
-		"n_payments":             info.NPayments,
-		"max_minor":              info.MaxAmount,
+		"n_payments":             nPayments,
+		"max_minor":              maxAmount,
 		"now":                    time.Now().Unix(),
-		"first_transaction":      info.FirstTransaction,
-		"last_transaction":       info.LastTransaction,
+		"first_transaction":      firstTransaction,
+		"last_transaction":       lastTransaction,
 		"segment":                req.Segment,
 		"count_1h":               transactionsWithin1,
 		"sum_1h":                 amountWithin1,
@@ -244,14 +277,16 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	if knownPayee {
 		payerToPaye = &yaotosev1.PayerToPayeeInteraction{
 			KnownPayee:                   knownPayee,
-			NPayments:                    info.NPayments,
-			MaxAmountSentMinor:           int32(info.MaxAmount),
+			NPayments:                    nPayments,
+			MaxAmountSentMinor:           maxAmount,
 			TransactionsWithin_1Hour:     int32(transactionsWithin1),
 			AmountSentWithin_1HourMinor:  int32(amountWithin1),
 			TransactionsWithin_24Hour:    int32(transactionsWithin24),
 			AmountSentWithin_24HourMinor: int32(amountWithin24),
-			FirstTransactionUnix:         info.FirstTransaction,
-			LastTransactionUnix:          info.LastTransaction,
+			FirstTransactionUnix:         firstTransaction,
+			LastTransactionUnix:          lastTransaction,
+			SameBank:                     sameBank,
+			DifferentCountries:           differentCountries,
 		}
 	}
 
