@@ -20,7 +20,7 @@ func NormalizeIBAN(text string) (string, error) {
 			c.WriteByte(b)
 		case b == ' ' || b == '-':
 		default:
-			return "", fmt.Errorf("Invalid character passed: %b", string(b))
+			return "", fmt.Errorf("Invalid character passed: %v", b)
 		}
 	}
 
