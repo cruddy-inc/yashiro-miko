@@ -20,14 +20,16 @@ message CurrentTransactionInfo {
 
 message PayerToPayeeInteraction {
   bool known_payee = 1;
-  int32 n_payments = 2;
-  int32 max_amount_sent_minor = 3;
+  optional int32 n_payments = 2;
+  optional int64 max_amount_sent_minor = 3;
   int32 transactions_within_1_hour = 4;
   int32 amount_sent_within_1_hour_minor = 5;
   int32 transactions_within_24_hour = 6;
   int32 amount_sent_within_24_hour_minor = 7;
-  int64 first_transaction_unix = 8;
-  int64 last_transaction_unix = 9;
+  optional int64 first_transaction_unix = 8;
+  optional int64 last_transaction_unix = 9;
+  optional bool same_bank = 10;
+  bool different_countries = 11;
 }
 
 message Envelope {

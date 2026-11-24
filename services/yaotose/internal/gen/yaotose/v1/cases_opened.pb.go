@@ -160,14 +160,16 @@ func (x *CurrentTransactionInfo) GetRemoteAccessDetected() bool {
 type PayerToPayeeInteraction struct {
 	state                        protoimpl.MessageState `protogen:"open.v1"`
 	KnownPayee                   bool                   `protobuf:"varint,1,opt,name=known_payee,json=knownPayee,proto3" json:"known_payee,omitempty"`
-	NPayments                    int32                  `protobuf:"varint,2,opt,name=n_payments,json=nPayments,proto3" json:"n_payments,omitempty"`
-	MaxAmountSentMinor           int32                  `protobuf:"varint,3,opt,name=max_amount_sent_minor,json=maxAmountSentMinor,proto3" json:"max_amount_sent_minor,omitempty"`
+	NPayments                    *int32                 `protobuf:"varint,2,opt,name=n_payments,json=nPayments,proto3,oneof" json:"n_payments,omitempty"`
+	MaxAmountSentMinor           *int64                 `protobuf:"varint,3,opt,name=max_amount_sent_minor,json=maxAmountSentMinor,proto3,oneof" json:"max_amount_sent_minor,omitempty"`
 	TransactionsWithin_1Hour     int32                  `protobuf:"varint,4,opt,name=transactions_within_1_hour,json=transactionsWithin1Hour,proto3" json:"transactions_within_1_hour,omitempty"`
 	AmountSentWithin_1HourMinor  int32                  `protobuf:"varint,5,opt,name=amount_sent_within_1_hour_minor,json=amountSentWithin1HourMinor,proto3" json:"amount_sent_within_1_hour_minor,omitempty"`
 	TransactionsWithin_24Hour    int32                  `protobuf:"varint,6,opt,name=transactions_within_24_hour,json=transactionsWithin24Hour,proto3" json:"transactions_within_24_hour,omitempty"`
 	AmountSentWithin_24HourMinor int32                  `protobuf:"varint,7,opt,name=amount_sent_within_24_hour_minor,json=amountSentWithin24HourMinor,proto3" json:"amount_sent_within_24_hour_minor,omitempty"`
-	FirstTransactionUnix         int64                  `protobuf:"varint,8,opt,name=first_transaction_unix,json=firstTransactionUnix,proto3" json:"first_transaction_unix,omitempty"`
-	LastTransactionUnix          int64                  `protobuf:"varint,9,opt,name=last_transaction_unix,json=lastTransactionUnix,proto3" json:"last_transaction_unix,omitempty"`
+	FirstTransactionUnix         *int64                 `protobuf:"varint,8,opt,name=first_transaction_unix,json=firstTransactionUnix,proto3,oneof" json:"first_transaction_unix,omitempty"`
+	LastTransactionUnix          *int64                 `protobuf:"varint,9,opt,name=last_transaction_unix,json=lastTransactionUnix,proto3,oneof" json:"last_transaction_unix,omitempty"`
+	SameBank                     *bool                  `protobuf:"varint,10,opt,name=same_bank,json=sameBank,proto3,oneof" json:"same_bank,omitempty"`
+	DifferentCountries           bool                   `protobuf:"varint,11,opt,name=different_countries,json=differentCountries,proto3" json:"different_countries,omitempty"`
 	unknownFields                protoimpl.UnknownFields
 	sizeCache                    protoimpl.SizeCache
 }
@@ -210,15 +212,15 @@ func (x *PayerToPayeeInteraction) GetKnownPayee() bool {
 }
 
 func (x *PayerToPayeeInteraction) GetNPayments() int32 {
-	if x != nil {
-		return x.NPayments
+	if x != nil && x.NPayments != nil {
+		return *x.NPayments
 	}
 	return 0
 }
 
-func (x *PayerToPayeeInteraction) GetMaxAmountSentMinor() int32 {
-	if x != nil {
-		return x.MaxAmountSentMinor
+func (x *PayerToPayeeInteraction) GetMaxAmountSentMinor() int64 {
+	if x != nil && x.MaxAmountSentMinor != nil {
+		return *x.MaxAmountSentMinor
 	}
 	return 0
 }
@@ -252,17 +254,31 @@ func (x *PayerToPayeeInteraction) GetAmountSentWithin_24HourMinor() int32 {
 }
 
 func (x *PayerToPayeeInteraction) GetFirstTransactionUnix() int64 {
-	if x != nil {
-		return x.FirstTransactionUnix
+	if x != nil && x.FirstTransactionUnix != nil {
+		return *x.FirstTransactionUnix
 	}
 	return 0
 }
 
 func (x *PayerToPayeeInteraction) GetLastTransactionUnix() int64 {
-	if x != nil {
-		return x.LastTransactionUnix
+	if x != nil && x.LastTransactionUnix != nil {
+		return *x.LastTransactionUnix
 	}
 	return 0
+}
+
+func (x *PayerToPayeeInteraction) GetSameBank() bool {
+	if x != nil && x.SameBank != nil {
+		return *x.SameBank
+	}
+	return false
+}
+
+func (x *PayerToPayeeInteraction) GetDifferentCountries() bool {
+	if x != nil {
+		return x.DifferentCountries
+	}
+	return false
 }
 
 type Envelope struct {
@@ -396,19 +412,28 @@ const file_yaotose_v1_cases_opened_proto_rawDesc = "" +
 	"\x11original_currency\x18\x03 \x01(\tR\x10originalCurrency\x12(\n" +
 	"\x10amount_eur_minor\x18\x04 \x01(\x03R\x0eamountEurMinor\x12*\n" +
 	"\x11active_phone_call\x18\x05 \x01(\bR\x0factivePhoneCall\x124\n" +
-	"\x16remote_access_detected\x18\x06 \x01(\bR\x14remoteAccessDetected\"\xfe\x03\n" +
+	"\x16remote_access_detected\x18\x06 \x01(\bR\x14remoteAccessDetected\"\xd1\x05\n" +
 	"\x17PayerToPayeeInteraction\x12\x1f\n" +
 	"\vknown_payee\x18\x01 \x01(\bR\n" +
-	"knownPayee\x12\x1d\n" +
+	"knownPayee\x12\"\n" +
 	"\n" +
-	"n_payments\x18\x02 \x01(\x05R\tnPayments\x121\n" +
-	"\x15max_amount_sent_minor\x18\x03 \x01(\x05R\x12maxAmountSentMinor\x12;\n" +
+	"n_payments\x18\x02 \x01(\x05H\x00R\tnPayments\x88\x01\x01\x126\n" +
+	"\x15max_amount_sent_minor\x18\x03 \x01(\x03H\x01R\x12maxAmountSentMinor\x88\x01\x01\x12;\n" +
 	"\x1atransactions_within_1_hour\x18\x04 \x01(\x05R\x17transactionsWithin1Hour\x12C\n" +
 	"\x1famount_sent_within_1_hour_minor\x18\x05 \x01(\x05R\x1aamountSentWithin1HourMinor\x12=\n" +
 	"\x1btransactions_within_24_hour\x18\x06 \x01(\x05R\x18transactionsWithin24Hour\x12E\n" +
-	" amount_sent_within_24_hour_minor\x18\a \x01(\x05R\x1bamountSentWithin24HourMinor\x124\n" +
-	"\x16first_transaction_unix\x18\b \x01(\x03R\x14firstTransactionUnix\x122\n" +
-	"\x15last_transaction_unix\x18\t \x01(\x03R\x13lastTransactionUnix\"\xf5\x03\n" +
+	" amount_sent_within_24_hour_minor\x18\a \x01(\x05R\x1bamountSentWithin24HourMinor\x129\n" +
+	"\x16first_transaction_unix\x18\b \x01(\x03H\x02R\x14firstTransactionUnix\x88\x01\x01\x127\n" +
+	"\x15last_transaction_unix\x18\t \x01(\x03H\x03R\x13lastTransactionUnix\x88\x01\x01\x12 \n" +
+	"\tsame_bank\x18\n" +
+	" \x01(\bH\x04R\bsameBank\x88\x01\x01\x12/\n" +
+	"\x13different_countries\x18\v \x01(\bR\x12differentCountriesB\r\n" +
+	"\v_n_paymentsB\x18\n" +
+	"\x16_max_amount_sent_minorB\x19\n" +
+	"\x17_first_transaction_unixB\x18\n" +
+	"\x16_last_transaction_unixB\f\n" +
+	"\n" +
+	"_same_bank\"\xf5\x03\n" +
 	"\bEnvelope\x12\x17\n" +
 	"\acase_id\x18\x01 \x01(\tR\x06caseId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12&\n" +
@@ -460,6 +485,7 @@ func file_yaotose_v1_cases_opened_proto_init() {
 	if File_yaotose_v1_cases_opened_proto != nil {
 		return
 	}
+	file_yaotose_v1_cases_opened_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
