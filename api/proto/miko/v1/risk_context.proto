@@ -9,7 +9,7 @@ option go_package = "github.com/cruddy-inc/yashiro-miko/services/tsubaki/interna
 // -----------------------------------------------------------------------------
 
 service RiskContextService {
-  rpc GetRiskContext (GetRiskContextRequest) returns (FraudEnrichmentContext);
+  rpc GetRiskContext (GetRiskContextRequest) returns (FraudEnrichmentContextResponse);
 }
 
 // -----------------------------------------------------------------------------
@@ -37,7 +37,7 @@ enum InstitutionType {
 // Main for AI Evaluation
 // -----------------------------------------------------------------------------
 
-message FraudEnrichmentContext {
+message FraudEnrichmentContextResponse {
   PayeeProfile payee_profile = 1;
   PayerSecurityContext payer_security = 2;
   PayeeNeighborhood payee_neighborhood = 3;
