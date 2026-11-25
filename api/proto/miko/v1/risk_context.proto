@@ -22,18 +22,6 @@ message GetRiskContextRequest {
 }
 
 // -----------------------------------------------------------------------------
-// Enums
-// -----------------------------------------------------------------------------
-
-enum InstitutionType {
-  INSTITUTION_TYPE_UNSPECIFIED = 0;
-  INSTITUTION_TYPE_RETAIL_BANK = 1;
-  INSTITUTION_TYPE_NEOBANK = 2;
-  INSTITUTION_TYPE_CRYPTO_OFFRAMP = 3;
-  INSTITUTION_TYPE_P2P_GATEWAY = 4;
-}
-
-// -----------------------------------------------------------------------------
 // Main for AI Evaluation
 // -----------------------------------------------------------------------------
 
@@ -59,9 +47,6 @@ message PayeeProfile {
   int64 total_inbound_volume_24h_minor = 6;
   int64 total_outbound_volume_24h_minor = 7;
   float outbound_to_inbound_ratio_24h = 8;
-  
-  // Indicates if the funds comes from suspicious sources
-  bool has_suspicious_funding_sources = 9;
 }
 
 // Security indicators for the payer attempting the transaction
@@ -79,19 +64,15 @@ message PayerSecurityContext {
 
 // Graph & Network connections of the payee
 message PayeeNeighborhood {
-  repeated CounterpartySummary top_outbound_destinations = 1;
+  CounterpartySummary counterparty_summary = 1;
   
   // Co-location triggers between Payer & Payee or wider network
   bool shares_device_with_payer = 2;
   bool shares_ip_subnet_with_payer = 3;
-  
-  // Graph propagation scores
-  float mule_score_one_hop = 4;
-  float mule_score_two_hops = 5;
+
 }
 
 message CounterpartySummary {
-  InstitutionType institution_type = 1;
-  int64 total_volume_transferred_minor = 2;
-  int32 transaction_count = 3;
+  int64 total_volume_transferred_minor = 1;
+  int32 transaction_count = 2;
 }
