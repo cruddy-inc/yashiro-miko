@@ -69,7 +69,7 @@ sessions AS (
 SELECT
     COALESCE(d.is_trusted, FALSE) AS is_trusted,
     COALESCE(s.is_proxy, FALSE) AS is_proxy,
-    COALESCE(c.country != s.last_ip_country, FALSE) AS ip_country_mismatch,
+    COALESCE(c.country != s.last_ip_country, FALSE)::boolean AS ip_country_mismatch,
     COALESCE(p.phone_changed, FALSE) AS phone_changed,
     COALESCE(p.email_changed, FALSE) AS email_changed,
     COALESCE(a.failed_auth_attempts, 0) AS failed_auth_attempts,
@@ -85,7 +85,7 @@ WHERE c.customer_id = (SELECT customer_id FROM target_id)
 type GetPayerSecurityContextRow struct {
 	IsTrusted          bool
 	IsProxy            bool
-	IpCountryMismatch  interface{}
+	IpCountryMismatch  bool
 	PhoneChanged       bool
 	EmailChanged       bool
 	FailedAuthAttempts int64
