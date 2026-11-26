@@ -44,7 +44,6 @@ class LLMRequest(BaseModel):
     seed: int | None = None
     response_schema: dict[str, Any] | type[BaseModel] | None = None
 
-
 class ToolCall(BaseModel):
     id: str
     name: str
@@ -78,7 +77,7 @@ class LLMResponse(BaseModel):
     payload: LLMResponsePayload
     lineage: LLMResponseLineage
     ledger: Usage
-    execution: LLMResponseExecution
+    execution: LLMResponseExecution | None = None
 
 class LLMError(Exception):
     def __init__(
