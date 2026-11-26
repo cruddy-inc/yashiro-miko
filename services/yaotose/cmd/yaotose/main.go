@@ -53,7 +53,7 @@ func start() int {
 		err := failure.EmptyValue("SECRET_KEY")
 		err = failure.Wrap("yaotose.main.environmental.variable.secret.key.fetch", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "SECRET_KEY", failure.InternalEmptyValueError, err)
 		return 1
 	}
 
