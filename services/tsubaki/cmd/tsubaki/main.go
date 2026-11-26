@@ -19,12 +19,16 @@ import (
 	"tsubaki/internal/jobs/kafka"
 	"tsubaki/internal/jobs/reroll"
 
+	pb "tsubaki/internal/gen/miko/v1"
+	tsubakigrpc "tsubaki/internal/grpc"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/otel"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -69,10 +73,28 @@ func start() int {
 
 	kafkaAddr := os.Getenv("KAFKA_ADDR")
 	if kafkaAddr == "" {
-		err := failure.EmptyValue("DATABASE_URL")
-		err = failure.Wrap("tsubaki.main.environmental.variable.database.url.fetch", err)
+		err := failure.EmptyValue("KAFKA_ADDR")
+		err = failure.Wrap("tsubaki.main.environmental.variable.kafka.addr.fetch", err)
 		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalEmptyValueError, err)
+		return 1
+	}
+
+	gRPCAddr := os.Getenv("GRPC_ADDR")
+	if gRPCAddr == "" {
+		err := failure.EmptyValue("GRPC_ADDR")
+		err = failure.Wrap("tsubaki.main.environmental.variable.grpc.addr.fetch", err)
+		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "GRPC_ADDR", failure.InternalEmptyValueError, err)
+		return 1
+	}
+
+	secretKey := os.Getenv("SECRET_KEY")
+	if secretKey == "" {
+		err := failure.EmptyValue("SECRET_KEY")
+		err = failure.Wrap("tsubaki.main.environmental.variable.secret.key.fetch", err)
+		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "SECRET_KEY", failure.InternalEmptyValueError, err)
 		return 1
 	}
 
@@ -195,16 +217,35 @@ func start() int {
 
 	err = riverClient.Start(ctx)
 	if err != nil {
-		err = failure.Wrap("main.river.client.start", err)
+		err = failure.Wrap("tsubaki.main.river.client.start", err)
 		fmt.Fprintf(os.Stderr, "main: %v\n", err)
 		errlog.Internal(riverRunCtx, nil, "river_client_start", failure.InternalGeneralError, err)
 		return 1
 	}
 	slog.Info("River started")
 
+	connCtx, connSpan := tracer.Start(rootCtx, "tsubaki.main.grpc.connection.start")
+	defer connSpan.End()
+	lis, err := net.Listen("tcp", gRPCAddr)
+	if err != nil {
+		err = failure.Wrap("tsubaki.main.listen.port.create", err)
+		errlog.Internal(connCtx, nil, "connection_listen", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	handler := tsubakigrpc.New(queries, secretKey)
+	grpcServer := grpc.NewServer()
+	pb.RegisterRiskContextServiceServer(grpcServer, handler)
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil {
+			errlog.Internal(rootCtx, nil, "grpc_serve", failure.InternalGeneralError, err)
+		}
+	}()
+
 	<-ctx.Done()
 
-	slog.Info("River shutting down")
+	slog.Info("River/gRPC shutting down")
 	defer func() {
 		err := riverClient.Stop(ctx)
 		if err != nil {
