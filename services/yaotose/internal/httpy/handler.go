@@ -266,11 +266,26 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	outboxCtx, outboxSpan := tracer.Start(rootCtx, "yaotose.http.cases.opened.publish")
-	defer outboxSpan.End()
+	encryptCtx, encryptSpan := tracer.Start(rootCtx, "yaotose.http.iban.aes.gcm.encrypt")
+	defer encryptSpan.End()
+	sT, err := crypto.EncryptVaultIban([]byte(secretKey.CurrentSecretKey), normalize.PadTo32(payerNormalized))
+	if err != nil {
+		err = failure.Wrap("yaotose.http.payer.iban.aes.gcm.encrypt", err)
+		errlog.General(encryptCtx, w, "payer_iban_aes_gcm_encrypt", failure.MalformedError, err)
+		return
+	}
+	rT, err := crypto.EncryptVaultIban([]byte(secretKey.CurrentSecretKey), normalize.PadTo32(payeeNormalized))
+	if err != nil {
+		err = failure.Wrap("yaotose.http.payee.iban.aes.gcm.encrypt", err)
+		errlog.General(encryptCtx, w, "payee_iban_aes_gcm_encrypt", failure.MalformedError, err)
+		return
+	}
+
+	payerS := string(sT)
+	payeeS := string(rT)
 
 	caseId := uuid.Must(uuid.NewV7()).String()
-	caseForm := fmt.Sprintf("case.%s.%s.%s", req.TenantID, payerToken, currPayeeToken)
+	caseForm := fmt.Sprintf("case.%s.%s.%s", req.TenantID, payerS, payeeS)
 	caseByte := []byte(caseForm)
 
 	var payerToPaye *yaotosev1.PayerToPayeeInteraction
@@ -293,8 +308,8 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 	value := yaotosev1.Envelope{
 		CaseId:          caseId,
 		TenantId:        req.TenantID,
-		PayerIbanHash:   payerToken,
-		PayeeIbanHash:   currPayeeToken,
+		PayerIbanHash:   payerS,
+		PayeeIbanHash:   payeeS,
 		YaotoseDecision: verdict.Decision,
 		RulesFired: &yaotosev1.YaotoseData{
 			Rules:  verdict.SuspicionAlert,
@@ -312,6 +327,9 @@ func (y *Yaotose) IncomingTransaction(w http.ResponseWriter, r *http.Request) {
 		KafkaTopic:              "cases.opened",
 		KafkaCase:               caseByte,
 	}
+
+	outboxCtx, outboxSpan := tracer.Start(rootCtx, "yaotose.http.cases.opened.publish")
+	defer outboxSpan.End()
 
 	payload, err := proto.Marshal(&value)
 	if err != nil {

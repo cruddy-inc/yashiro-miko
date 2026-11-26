@@ -137,7 +137,7 @@ func start() int {
 	)
 	if err != nil {
 		err = failure.Wrap("yaotose.main.kafka.client.create", err)
-		fmt.Fprint(os.Stderr, "yaotose.main: %v\n", err)
+		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
 		errlog.General(decisionCtx, nil, "kafka_client_create", failure.InternalGeneralError, err)
 		return 1
 	}
