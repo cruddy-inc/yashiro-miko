@@ -11,6 +11,7 @@ import (
 	"pkg/errlog"
 	"pkg/failure"
 	"pkg/logger"
+	"pkg/parameter"
 	"syscall"
 	"time"
 	"tsubaki/domain"
@@ -22,6 +23,8 @@ import (
 	pb "tsubaki/internal/gen/miko/v1"
 	tsubakigrpc "tsubaki/internal/grpc"
 
+	ssmconf "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -59,42 +62,79 @@ func start() int {
 		},
 	}
 
+	ssmCtx, ssmSpan := tracer.Start(rootCtx, "tsubaki.main.ssm.client.create")
+	defer ssmSpan.End()
+
+	c, err := ssmconf.LoadDefaultConfig(ssmCtx)
+	if err != nil {
+		err = failure.Wrap("tsubaki.main.ssm.conf.create", err)
+		errlog.Internal(ssmCtx, nil, "ssm_config_create", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	ssmClient := ssm.NewFromConfig(c)
+
 	envCtx, envSpan := tracer.Start(rootCtx, "tsubaki.main.environmental.variable.fetch")
 	defer envSpan.End()
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		err := failure.EmptyValue("DATABASE_URL")
+	environment := os.Getenv("ENVIRONMENT")
+	if environment == "" {
+		err := failure.EmptyValue("ENVIRONMENT")
+		err = failure.Wrap("tsubaki.main.environmental.variable.environment.fetch", err)
+		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "ENVIRONMENT", failure.InternalEmptyValueError, err)
+		return 1
+	}
+
+	currentOperation, err := parameter.NewOperation(parameter.Tsubaki, parameter.Env(environment))
+	if err != nil {
+		err = failure.Wrap("tsubaki.main.parameter.operation.create", err)
+		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "parameter_operation_create", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	databaseURL, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("DATABASE_URL"),
+		Decryption: true,
+	})
+	if err != nil {
 		err = failure.Wrap("tsubaki.main.environmental.variable.database.url.fetch", err)
 		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	kafkaAddr := os.Getenv("KAFKA_ADDR")
-	if kafkaAddr == "" {
-		err := failure.EmptyValue("KAFKA_ADDR")
+	kafkaAddr, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("KAFKA_ADDR"),
+		Decryption: false,
+	})
+	if err != nil {
 		err = failure.Wrap("tsubaki.main.environmental.variable.kafka.addr.fetch", err)
 		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	gRPCAddr := os.Getenv("GRPC_ADDR")
-	if gRPCAddr == "" {
-		err := failure.EmptyValue("GRPC_ADDR")
+	gRPCAddr, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("GRPC_ADDR"),
+		Decryption: false,
+	})
+	if err != nil {
 		err = failure.Wrap("tsubaki.main.environmental.variable.grpc.addr.fetch", err)
 		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "GRPC_ADDR", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "GRPC_ADDR", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	secretKey := os.Getenv("SECRET_KEY")
-	if secretKey == "" {
-		err := failure.EmptyValue("SECRET_KEY")
+	secretKey, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("SECRET_KEY"),
+		Decryption: true,
+	})
+	if err != nil {
 		err = failure.Wrap("tsubaki.main.environmental.variable.secret.key.fetch", err)
 		fmt.Fprintf(os.Stderr, "tsubaki.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "SECRET_KEY", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "SECRET_KEY", failure.InternalGeneralError, err)
 		return 1
 	}
 
@@ -179,7 +219,9 @@ func start() int {
 
 	workers := river.NewWorkers()
 	keyRerollWorker := &reroll.KeyRerollWorker{
-		Secret: &domain.RerollStore{},
+		Secret:           &domain.RerollStore{},
+		SSMClient:        ssmClient,
+		CurrentOperation: currentOperation,
 	}
 	casesOpenedOutboxWorker := &kafka.CasesOpenedOutboxWorker{
 		Queries: queries,
@@ -224,6 +266,7 @@ func start() int {
 	}
 	slog.Info("River started")
 
+	// FIND REFERENCE AT: https://grpc.io/docs/languages/go/basics/#starting-the-server
 	connCtx, connSpan := tracer.Start(rootCtx, "tsubaki.main.grpc.connection.start")
 	defer connSpan.End()
 	lis, err := net.Listen("tcp", gRPCAddr)
