@@ -8,12 +8,15 @@ import (
 	"pkg/errlog"
 	"pkg/failure"
 	"pkg/logger"
+	"pkg/parameter"
 	"time"
 	"tsubaki/domain"
 	db "yaotose/internal/db/sqlc"
 	"yaotose/internal/httpy"
 	"yaotose/internal/rules"
 
+	ssmconf "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -33,54 +36,83 @@ func start() int {
 	ctx = logger.SetLogger(ctx, log)
 
 	tracer := otel.Tracer("yaotose_main")
+
 	rootCtx, rootSpan := tracer.Start(ctx, "yaotose.main.start")
 	defer rootSpan.End()
 
+	ssmCtx, ssmSpan := tracer.Start(rootCtx, "yaotose.main.ssm.client.create")
+	defer ssmSpan.End()
+
+	c, err := ssmconf.LoadDefaultConfig(ssmCtx)
+	if err != nil {
+		err = failure.Wrap("yaotose.main.ssm.conf.create", err)
+		errlog.Internal(ssmCtx, nil, "ssm_config_create", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	ssmClient := ssm.NewFromConfig(c)
+
 	envCtx, envSpan := tracer.Start(rootCtx, "yaotose.main.environmental.variable.fetch")
 	defer envSpan.End()
-	// Use os.Getenv (final version might use viper)
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		err := failure.EmptyValue("DATABASE_URL")
+
+	environment := os.Getenv("ENVIRONMENT")
+	if environment == "" {
+		err := failure.EmptyValue("ENVIRONMENT")
+		err = failure.Wrap("yaotose.main.environmental.variable.environment.fetch", err)
+		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "ENVIRONMENT", failure.InternalEmptyValueError, err)
+		return 1
+	}
+
+	currentOperation, err := parameter.NewOperation(parameter.Yaotose, parameter.Env(environment))
+	if err != nil {
+		err = failure.Wrap("yaotose.main.parameter.operation.create", err)
+		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
+		errlog.Internal(envCtx, nil, "parameter_operation_create", failure.InternalGeneralError, err)
+		return 1
+	}
+
+	databaseURL, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("DATABASE_URL"),
+		Decryption: true,
+	})
+	if err != nil {
 		err = failure.Wrap("yaotose.main.environmental.variable.database.url.fetch", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "DATABASE_URL", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	secretKey := os.Getenv("SECRET_KEY")
-	if secretKey == "" {
-		err := failure.EmptyValue("SECRET_KEY")
-		err = failure.Wrap("yaotose.main.environmental.variable.secret.key.fetch", err)
-		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "SECRET_KEY", failure.InternalEmptyValueError, err)
-		return 1
-	}
-
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		err := failure.EmptyValue("REDIS_ADDR")
+	redisAddr, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("REDIS_ADDR"),
+		Decryption: false,
+	})
+	if err != nil {
 		err = failure.Wrap("yaotose.main.environmental.variable.redis.address.fetch", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "REDIS_ADDR", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "REDIS_ADDR", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	redisPass := os.Getenv("REDIS_PASSWORD")
-	if redisAddr == "" {
-		err := failure.EmptyValue("REDIS_PASSWORD")
+	redisPass, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("REDIS_PASSWORD"),
+		Decryption: true,
+	})
+	if err != nil {
 		err = failure.Wrap("yaotose.main.environmental.variable.redis.password.fetch", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "REDIS_PASSWORD", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "REDIS_PASSWORD", failure.InternalGeneralError, err)
 		return 1
 	}
 
-	kafkaAddr := os.Getenv("KAFKA_ADDR")
-	if kafkaAddr == "" {
-		err := failure.EmptyValue("KAFKA_ADDR")
+	kafkaAddr, err := parameter.FetchParameter(ssmClient, envCtx, parameter.ParamFetch{
+		Name:       currentOperation.FormatParameter("KAFKA_ADDR"),
+		Decryption: false,
+	})
+	if err != nil {
 		err = failure.Wrap("yaotose.main.environmental.variable.kafka.address.fetch", err)
 		fmt.Fprintf(os.Stderr, "yaotose.main: %v\n", err)
-		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalEmptyValueError, err)
+		errlog.Internal(envCtx, nil, "KAFKA_ADDR", failure.InternalGeneralError, err)
 		return 1
 	}
 
