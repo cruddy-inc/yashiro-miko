@@ -9,17 +9,21 @@ import (
 	"pkg/errlog"
 	"pkg/failure"
 	"pkg/logger"
+	"pkg/parameter"
 	"strconv"
 	"time"
 	"tsubaki/domain"
 
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/otel"
 )
 
 type KeyRerollWorker struct {
 	river.WorkerDefaults[KeyRerollArgs]
-	Secret *domain.RerollStore
+	Secret           *domain.RerollStore
+	SSMClient        *ssm.Client
+	CurrentOperation *parameter.CurrentOperation
 }
 
 func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs]) error {
@@ -51,6 +55,7 @@ func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs
 		}
 	}
 
+	previousKey := data.CurrentSecretKey
 	log := slog.With(slog.String("op", "key_reroll"))
 	ctx = logger.SetLogger(ctx, log)
 
@@ -99,11 +104,46 @@ func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs
 	}
 	date := time.Now()
 
+	insertCtx, insertSpan := tracer.Start(rootCtx, "tsubaki.key.reroll.ssm.insert")
+	defer insertSpan.End()
+	err = parameter.PutParameter(k.SSMClient, insertCtx, []parameter.ParamInsert{
+		{
+			Name:      k.CurrentOperation.FormatParameter("PREVIOUS_KEY"),
+			Value:     previousKey,
+			Secure:    true,
+			Overwrite: true,
+		},
+		{
+			Name:      k.CurrentOperation.FormatParameter("CURRENT_KEY"),
+			Value:     newSecretKey,
+			Secure:    true,
+			Overwrite: true,
+		},
+		{
+			Name:      k.CurrentOperation.FormatParameter("KEY_VERSION"),
+			Value:     newVer,
+			Secure:    false,
+			Overwrite: true,
+		},
+		{
+			Name:      k.CurrentOperation.FormatParameter("KEY_DATE"),
+			Value:     date.String(),
+			Secure:    false,
+			Overwrite: true,
+		},
+	})
+	if err != nil {
+		err = failure.Wrap("tsubaki.key.reroll.ssm.secret.key.data.insert", err)
+		errlog.Internal(insertCtx, nil, "ssm_secret_key_data_insert", failure.InternalGeneralError, err)
+		return err
+	}
+
 	k.Secret.Store(&domain.Reroll{
 		PreviousSecretKey: data.CurrentSecretKey,
 		CurrentSecretKey:  newSecretKey,
 		Version:           newVer,
 		UpdatedAt:         date,
 	})
+
 	return nil
 }
