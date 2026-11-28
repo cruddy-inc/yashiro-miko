@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package miko.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/cruddy-inc/yashiro-miko/services/azami/internal/gen/miko/v1;mikov1";
+
+enum ScamTypology {
+  SCAM_TYPOLOGY_UNSPECIFIED = 0;
+  SCAM_TYPOLOGY_UNKNOWN = 1;
+  SCAM_TYPOLOGY_BANK_IMPERSONATION = 2;
+  SCAM_TYPOLOGY_INVESTMENT_SCAM = 3;
+  SCAM_TYPOLOGY_ROMANCE_SCAM = 4;
+  SCAM_TYPOLOGY_INVOICE_REDIRECTION = 5;
+  SCAM_TYPOLOGY_MULE_ACCOUNT = 6;
+  SCAM_TYPOLOGY_ACCOUNT_TAKEOVER = 7;
+}
+
+enum DecisionAction {
+  DECISION_ACTION_UNSPECIFIED = 0;
+  DECISION_ACTION_PASS = 1;
+  DECISION_ACTION_STEP_UP = 2;
+  DECISION_ACTION_HOLD = 3;
+  DECISION_ACTION_BLOCK = 4;
+  DECISION_ACTION_ESCALATE_TO_ANALYST = 5;
+}
+
+enum RiskPriority {
+  RISK_PRIORITY_UNSPECIFIED = 0;
+  RISK_PRIORITY_LOW = 1;
+  RISK_PRIORITY_MEDIUM = 2;
+  RISK_PRIORITY_HIGH = 3;
+  RISK_PRIORITY_CRITICAL = 4;
+}
+
+message LLMInfo {
+  string provider = 1;
+  string model = 2;
+  string model_version = 3;
+  string prompt_version = 4;
+}
+
+message MikoDecision {
+  // Events 
+  string alert_id = 1; // Unique ID assigned to this specific risk evaluation event
+  string transaction_id = 2; // The underlying core-banking payment or transfer reference being evaluated
+  string trace_id = 3; // OpenTelemetry / W3C / Langfuse trace ID for backend microservice debugging
+  string case_id = 4; // Optional case management ticket ID for the human analyst~ (gonna eat him - by Shiori)
+
+  // Information about the active AI
+  LLMInfo model_info = 5; // Provider information (e.g. "openai", "anthropic", etc), model name, prompt version, etc
+
+  // Info about the case
+  DecisionAction decision = 6; // The decision of the AI (e.g. STEP_UP, HOLD, etc)
+  repeated ScamTypology scam_typology = 7; // The typology of the scam (e.g. ROMANCE, BANK_IMPERSONATION, etc)
+  RiskPriority risk = 8; // The risk level of the case
+
+  // The AI explanation and its confidence
+  float confidence = 9; // The confidence of the current model
+  string explanation_message = 10; // The explanation text of the AI
+
+  // From where the AI retrieved the data
+  repeated string source_of_playbook = 11; // The playbooks from which the model retrieved data (e.g. PLAYBOOK_APP_INV_V3, etc)
+  repeated string extracted_evidence = 12; // The exact pieces of text that were relevant for the AI in this case
+  
+  // AI Recommendations
+  repeated string recommendations_for_analyst = 13; // What the AI recommends the analyst to check (e.g. "Conduct out-of-band voice call using registered phone number", etc)
+
+  // UTC timestamp when the evaluation was finalized
+  google.protobuf.Timestamp decided_at = 14;
+
+  // Total execution latency spent processing the RAG pipeline and model inference
+  google.protobuf.Duration processing_duration = 15;
+}
+
+message YaotoseDecision {
+  repeated string rules = 1;
+  string decision = 2;
+  google.protobuf.Timestamp decided_at = 3;
+}
+
+message CasesClosed {
+  MikoDecision miko_decision = 1;
+  YaotoseDecision yaotose_decision = 2;
+}
