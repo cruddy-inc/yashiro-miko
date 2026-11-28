@@ -44,6 +44,7 @@ func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs
 			CurrentSecretKey:  hex.EncodeToString(s),
 			Version:           "k0",
 			UpdatedAt:         time.Now(),
+			ExpiresAt:         time.Now().Unix() - 1,
 		}
 
 		if k.Secret.CompareAndSwap(nil, fallbackData) {
@@ -53,6 +54,10 @@ func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs
 			// Another goroutine inserted first, we simply give what the goroutine inserted
 			data = k.Secret.Load()
 		}
+	}
+
+	if data.ExpiresAt > time.Now().Unix() {
+		return nil
 	}
 
 	previousKey := data.CurrentSecretKey
@@ -143,6 +148,7 @@ func (k *KeyRerollWorker) Work(ctx context.Context, job *river.Job[KeyRerollArgs
 		CurrentSecretKey:  newSecretKey,
 		Version:           newVer,
 		UpdatedAt:         date,
+		ExpiresAt:         time.Now().Add(720 * time.Hour).Unix(),
 	})
 
 	return nil
