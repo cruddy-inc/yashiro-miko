@@ -10,6 +10,7 @@ type Reroll struct {
 	PreviousSecretKey string
 	Version           string
 	UpdatedAt         time.Time
+	ExpiresAt         int64
 }
 
 type RerollStore struct {
